@@ -1,0 +1,56 @@
+{
+  "name": "mcp-say-hello",
+  "version": "0.1.0",
+  "description": "GVSLabs mcp-say-hello: a workspace-scoped MCP server for coding tools, file edits, Git inspection, and optional dangerous operations.",
+  "type": "module",
+  "main": "dist/index.js",
+  "homepage": "https://gvslabs.cloud/",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "ci": "pnpm run typecheck && pnpm run build && pnpm run audit:critical",
+    "dev": "tsx --env-file=.env watch src/index.ts",
+    "dev:stdio": "tsx --env-file=.env src/index.ts --stdio",
+    "start": "node --env-file=.env dist/index.js",
+    "start:stdio": "node --env-file=.env dist/index.js --stdio",
+    "start:ngrok": "node --env-file=.env scripts/start-ngrok.mjs",
+    "audit:critical": "pnpm audit --audit-level critical",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "coding",
+    "workspace",
+    "gvslabs",
+    "gvslabs.cloud",
+    "mcp-say-hello"
+  ],
+  "author": "GVSLabs <https://gvslabs.cloud/>",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "files": [
+    "dist/",
+    "scripts/",
+    "src/",
+    ".env.example",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "SECURITY.md",
+    "TRADEMARKS.md"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
