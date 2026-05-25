@@ -1425,6 +1425,253 @@ function createServer() {
     },
   );
 
+  server.registerTool(
+    "git_log",
+    {
+      title: "Git log",
+      description:
+        "Read recent Git commit history for a repository inside the workspace.",
+      inputSchema: {
+        repoPath: z
+          .string()
+          .default(".")
+          .describe("Relative repository directory inside the workspace."),
+        maxCount: z
+          .number()
+          .int()
+          .min(1)
+          .max(100)
+          .default(20)
+          .describe("Maximum number of commits to return."),
+        oneline: z
+          .boolean()
+          .default(true)
+          .describe("Use compact one-line format for each commit."),
+      },
+      outputSchema: {
+        repoPath: z.string(),
+        result: z.object({
+          command: z.string(),
+          exitCode: z.number(),
+          stdout: z.string(),
+          stderr: z.string(),
+          truncated: z.boolean(),
+        }),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ repoPath, maxCount, oneline }) => {
+      const repoDirectory = await getProjectDirectory(repoPath);
+      const args = [
+        "log",
+        `--max-count=${maxCount}`,
+        ...(oneline ? ["--oneline"] : ["--format=medium"]),
+      ];
+      const result = await runWorkspaceCommand(
+        "git",
+        args,
+        repoDirectory,
+        `git ${args.join(" ")}`,
+        30_000,
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [result.stdout, result.stderr].filter(Boolean).join("\n"),
+          },
+        ],
+        structuredContent: {
+          repoPath: toWorkspaceRelativePath(repoDirectory),
+          result,
+        },
+      };
+    },
+  );
+
+  server.registerTool(
+    "git_show",
+    {
+      title: "Git show",
+      description:
+        "Show the content and metadata of a specific Git commit or ref inside the workspace.",
+      inputSchema: {
+        repoPath: z
+          .string()
+          .default(".")
+          .describe("Relative repository directory inside the workspace."),
+        ref: z
+          .string()
+          .trim()
+          .min(1)
+          .max(500)
+          .default("HEAD")
+          .describe("Commit hash, tag, branch, or ref to show."),
+        stat: z
+          .boolean()
+          .default(false)
+          .describe("Show only file stats instead of full diff."),
+      },
+      outputSchema: {
+        repoPath: z.string(),
+        ref: z.string(),
+        result: z.object({
+          command: z.string(),
+          exitCode: z.number(),
+          stdout: z.string(),
+          stderr: z.string(),
+          truncated: z.boolean(),
+        }),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ repoPath, ref, stat: showStat }) => {
+      const repoDirectory = await getProjectDirectory(repoPath);
+      const args = ["show", ...(showStat ? ["--stat"] : []), ref];
+      const result = await runWorkspaceCommand(
+        "git",
+        args,
+        repoDirectory,
+        `git show ${showStat ? "--stat " : ""}${ref}`,
+        30_000,
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [result.stdout, result.stderr].filter(Boolean).join("\n"),
+          },
+        ],
+        structuredContent: {
+          repoPath: toWorkspaceRelativePath(repoDirectory),
+          ref,
+          result,
+        },
+      };
+    },
+  );
+
+  server.registerTool(
+    "git_remote",
+    {
+      title: "Git remote",
+      description:
+        "List configured Git remotes for a repository inside the workspace.",
+      inputSchema: {
+        repoPath: z
+          .string()
+          .default(".")
+          .describe("Relative repository directory inside the workspace."),
+      },
+      outputSchema: {
+        repoPath: z.string(),
+        result: z.object({
+          command: z.string(),
+          exitCode: z.number(),
+          stdout: z.string(),
+          stderr: z.string(),
+          truncated: z.boolean(),
+        }),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ repoPath }) => {
+      const repoDirectory = await getProjectDirectory(repoPath);
+      const result = await runWorkspaceCommand(
+        "git",
+        ["remote", "-v"],
+        repoDirectory,
+        "git remote -v",
+        30_000,
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [result.stdout, result.stderr].filter(Boolean).join("\n"),
+          },
+        ],
+        structuredContent: {
+          repoPath: toWorkspaceRelativePath(repoDirectory),
+          result,
+        },
+      };
+    },
+  );
+
+  server.registerTool(
+    "git_branch",
+    {
+      title: "Git branch",
+      description:
+        "List Git branches for a repository inside the workspace. Shows local and optionally remote branches.",
+      inputSchema: {
+        repoPath: z
+          .string()
+          .default(".")
+          .describe("Relative repository directory inside the workspace."),
+        all: z
+          .boolean()
+          .default(false)
+          .describe("Include remote-tracking branches."),
+      },
+      outputSchema: {
+        repoPath: z.string(),
+        result: z.object({
+          command: z.string(),
+          exitCode: z.number(),
+          stdout: z.string(),
+          stderr: z.string(),
+          truncated: z.boolean(),
+        }),
+      },
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
+      },
+    },
+    async ({ repoPath, all }) => {
+      const repoDirectory = await getProjectDirectory(repoPath);
+      const args = ["branch", ...(all ? ["-a"] : [])];
+      const result = await runWorkspaceCommand(
+        "git",
+        args,
+        repoDirectory,
+        `git ${args.join(" ")}`,
+        30_000,
+      );
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [result.stdout, result.stderr].filter(Boolean).join("\n"),
+          },
+        ],
+        structuredContent: {
+          repoPath: toWorkspaceRelativePath(repoDirectory),
+          result,
+        },
+      };
+    },
+  );
+
   if (dangerousToolsEnabled) {
     server.registerTool(
       "read_any_file",
@@ -2004,10 +2251,465 @@ function createServer() {
         };
       },
     );
+
+    server.registerTool(
+      "git_checkout",
+      {
+        title: "Git checkout",
+        description:
+          "Create a new branch or switch to an existing branch inside a workspace repository.",
+        inputSchema: {
+          repoPath: z
+            .string()
+            .default(".")
+            .describe("Relative workspace repository directory."),
+          branch: z
+            .string()
+            .trim()
+            .min(1)
+            .max(300)
+            .describe("Branch name to switch to or create."),
+          create: z
+            .boolean()
+            .default(false)
+            .describe("Create a new branch instead of switching to an existing one."),
+        },
+        outputSchema: {
+          repoPath: z.string(),
+          branch: z.string(),
+          created: z.boolean(),
+          result: z.object({
+            command: z.string(),
+            exitCode: z.number(),
+            stdout: z.string(),
+            stderr: z.string(),
+            truncated: z.boolean(),
+          }),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async ({ repoPath, branch, create }) => {
+        const repoDirectory = await getProjectDirectory(repoPath);
+        const args = create
+          ? ["checkout", "-b", branch]
+          : ["checkout", branch];
+        const result = await runWorkspaceCommand(
+          "git",
+          args,
+          repoDirectory,
+          `git ${args.join(" ")}`,
+          30_000,
+        );
+
+        return {
+          content: [{ type: "text", text: [result.stdout, result.stderr].filter(Boolean).join("\n") }],
+          structuredContent: {
+            repoPath: toWorkspaceRelativePath(repoDirectory),
+            branch,
+            created: create,
+            result,
+          },
+        };
+      },
+    );
+
+    server.registerTool(
+      "git_restore",
+      {
+        title: "Git restore",
+        description:
+          "Discard uncommitted changes for specific paths or the entire working tree inside a workspace repository.",
+        inputSchema: {
+          repoPath: z
+            .string()
+            .default(".")
+            .describe("Relative workspace repository directory."),
+          paths: z
+            .array(z.string().trim().min(1).max(500))
+            .min(1)
+            .max(100)
+            .default(["."])
+            .describe("Paths to restore. Use '.' for the entire working tree."),
+          staged: z
+            .boolean()
+            .default(false)
+            .describe("Unstage files instead of discarding working-tree changes."),
+        },
+        outputSchema: {
+          repoPath: z.string(),
+          paths: z.array(z.string()),
+          staged: z.boolean(),
+          result: z.object({
+            command: z.string(),
+            exitCode: z.number(),
+            stdout: z.string(),
+            stderr: z.string(),
+            truncated: z.boolean(),
+          }),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          openWorldHint: false,
+        },
+      },
+      async ({ repoPath, paths, staged }) => {
+        const repoDirectory = await getProjectDirectory(repoPath);
+        const args = [
+          "restore",
+          ...(staged ? ["--staged"] : []),
+          "--",
+          ...paths,
+        ];
+        const result = await runWorkspaceCommand(
+          "git",
+          args,
+          repoDirectory,
+          `git ${args.join(" ")}`,
+          30_000,
+        );
+
+        return {
+          content: [{ type: "text", text: [result.stdout, result.stderr].filter(Boolean).join("\n") }],
+          structuredContent: {
+            repoPath: toWorkspaceRelativePath(repoDirectory),
+            paths,
+            staged,
+            result,
+          },
+        };
+      },
+    );
+
+    server.registerTool(
+      "create_directory",
+      {
+        title: "Create directory",
+        description:
+          "Create a directory inside WORKSPACE_ROOT, including intermediate parent directories.",
+        inputSchema: {
+          path: z
+            .string()
+            .min(1)
+            .describe("Relative directory path inside WORKSPACE_ROOT."),
+        },
+        outputSchema: {
+          path: z.string(),
+          created: z.boolean(),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async ({ path }) => {
+        const absolutePath = resolveAnyWorkspacePath(path);
+        await prepareAnyWorkspaceWrite(absolutePath);
+        await mkdir(absolutePath, { recursive: true });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Created directory ${toWorkspaceRelativePath(absolutePath)}.`,
+            },
+          ],
+          structuredContent: {
+            path: toWorkspaceRelativePath(absolutePath),
+            created: true,
+          },
+        };
+      },
+    );
+
+    server.registerTool(
+      "move_file",
+      {
+        title: "Move or rename file",
+        description:
+          "Move or rename a file inside WORKSPACE_ROOT. Creates destination parent directories.",
+        inputSchema: {
+          sourcePath: z
+            .string()
+            .min(1)
+            .describe("Relative source file path inside WORKSPACE_ROOT."),
+          destinationPath: z
+            .string()
+            .min(1)
+            .describe("Relative destination file path inside WORKSPACE_ROOT."),
+        },
+        outputSchema: {
+          sourcePath: z.string(),
+          destinationPath: z.string(),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async ({ sourcePath, destinationPath }) => {
+        const absoluteSource = resolveAnyWorkspacePath(sourcePath);
+        const absoluteDestination = resolveAnyWorkspacePath(destinationPath);
+
+        const sourceStat = await stat(absoluteSource);
+        if (!sourceStat.isFile()) {
+          throw new Error("Source path must point to a file.");
+        }
+
+        await prepareAnyWorkspaceWrite(absoluteDestination);
+
+        const { rename } = await import("node:fs/promises");
+        await rename(absoluteSource, absoluteDestination);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Moved ${toWorkspaceRelativePath(absoluteSource)} to ${toWorkspaceRelativePath(absoluteDestination)}.`,
+            },
+          ],
+          structuredContent: {
+            sourcePath: toWorkspaceRelativePath(absoluteSource),
+            destinationPath: toWorkspaceRelativePath(absoluteDestination),
+          },
+        };
+      },
+    );
+
+    server.registerTool(
+      "delete_directory",
+      {
+        title: "Delete directory",
+        description:
+          "Delete a directory and its contents inside WORKSPACE_ROOT. This is recursive and destructive.",
+        inputSchema: {
+          path: z
+            .string()
+            .min(1)
+            .describe("Relative directory path inside WORKSPACE_ROOT."),
+        },
+        outputSchema: {
+          path: z.string(),
+          deleted: z.boolean(),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          openWorldHint: false,
+        },
+      },
+      async ({ path }) => {
+        const absolutePath = resolveAnyWorkspacePath(path);
+        assertWorkspaceBoundaryPath(absolutePath);
+
+        const dirStat = await stat(absolutePath);
+        if (!dirStat.isDirectory()) {
+          throw new Error("Path must point to a directory.");
+        }
+
+        if (absolutePath === workspaceRoot) {
+          throw new Error("Cannot delete the workspace root directory.");
+        }
+
+        const { rm } = await import("node:fs/promises");
+        await rm(absolutePath, { recursive: true, force: true });
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Deleted directory ${toWorkspaceRelativePath(absolutePath)}.`,
+            },
+          ],
+          structuredContent: {
+            path: toWorkspaceRelativePath(absolutePath),
+            deleted: true,
+          },
+        };
+      },
+    );
+
+    server.registerTool(
+      "analyze_project",
+      {
+        title: "Analyze project",
+        description:
+          "Analyze a workspace project directory and return a summary of its structure, dependencies, scripts, and file statistics.",
+        inputSchema: {
+          projectPath: z
+            .string()
+            .default(".")
+            .describe("Relative project directory inside the workspace."),
+        },
+        outputSchema: {
+          projectPath: z.string(),
+          packageManager: z.string(),
+          scripts: z.record(z.string(), z.string()),
+          dependencies: z.record(z.string(), z.string()),
+          devDependencies: z.record(z.string(), z.string()),
+          totalFiles: z.number(),
+          totalDirectories: z.number(),
+          entryPoints: z.array(z.string()),
+          largestFiles: z.array(
+            z.object({
+              path: z.string(),
+              bytes: z.number(),
+            }),
+          ),
+        },
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          openWorldHint: false,
+        },
+      },
+      async ({ projectPath }) => {
+        const project = await readPackageJson(projectPath);
+        const manifest = project.manifest as Record<string, unknown>;
+        const packageManager = getPackageManager(project.manifest);
+
+        const scripts = Object.fromEntries(
+          Object.entries((manifest.scripts as Record<string, string>) ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        );
+
+        const dependencies = Object.fromEntries(
+          Object.entries((manifest.dependencies as Record<string, string>) ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        );
+
+        const devDependencies = Object.fromEntries(
+          Object.entries((manifest.devDependencies as Record<string, string>) ?? {}).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string",
+          ),
+        );
+
+        // Scan files to get counts and largest files
+        const allFiles: { path: string; bytes: number }[] = [];
+        let totalDirectories = 0;
+
+        async function scanDirectory(dirPath: string) {
+          const entries = await readdir(dirPath, { withFileTypes: true });
+          for (const entry of entries) {
+            if (entry.isSymbolicLink()) continue;
+            const entryPath = resolve(dirPath, entry.name);
+            const isDir = entry.isDirectory();
+
+            if (shouldSkipTraversalEntry(entry.name, isDir)) continue;
+
+            if (isDir) {
+              totalDirectories++;
+              await scanDirectory(entryPath);
+            } else if (entry.isFile()) {
+              try {
+                const fileStat = await stat(entryPath);
+                allFiles.push({
+                  path: toWorkspaceRelativePath(entryPath),
+                  bytes: fileStat.size,
+                });
+              } catch {
+                // skip unreadable files
+              }
+            }
+          }
+        }
+
+        await scanDirectory(project.projectDirectory);
+
+        allFiles.sort((a, b) => b.bytes - a.bytes);
+        const largestFiles = allFiles.slice(0, 10);
+
+        // Detect entry points
+        const entryPoints: string[] = [];
+        const commonEntries = [
+          "src/index.ts", "src/index.tsx", "src/index.js",
+          "src/main.ts", "src/main.tsx", "src/main.js",
+          "src/App.tsx", "src/App.ts", "src/App.js",
+          "index.ts", "index.js", "index.html",
+        ];
+        for (const entryName of commonEntries) {
+          const entryPath = resolve(project.projectDirectory, entryName);
+          try {
+            const entryStat = await stat(entryPath);
+            if (entryStat.isFile()) {
+              entryPoints.push(entryName);
+            }
+          } catch {
+            // doesn't exist
+          }
+        }
+
+        const summary = {
+          projectPath: project.relativeProjectPath,
+          packageManager,
+          scripts,
+          dependencies,
+          devDependencies,
+          totalFiles: allFiles.length,
+          totalDirectories,
+          entryPoints,
+          largestFiles,
+        };
+
+        const summaryText = [
+          `Project: ${summary.projectPath}`,
+          `Package manager: ${summary.packageManager}`,
+          `Files: ${summary.totalFiles}, Directories: ${summary.totalDirectories}`,
+          `Entry points: ${summary.entryPoints.join(", ") || "none detected"}`,
+          `Scripts: ${Object.keys(summary.scripts).join(", ") || "none"}`,
+          `Dependencies: ${Object.keys(summary.dependencies).length}`,
+          `Dev dependencies: ${Object.keys(summary.devDependencies).length}`,
+          `Largest files:`,
+          ...summary.largestFiles.map((f) => `  ${f.path} (${f.bytes} bytes)`),
+        ].join("\n");
+
+        return {
+          content: [{ type: "text", text: summaryText }],
+          structuredContent: summary,
+        };
+      },
+    );
   }
 
   return server;
 }
+
+// ── Dev Server Manager ──────────────────────────────────────────────
+
+type ManagedProcess = {
+  process: ReturnType<typeof import("node:child_process").spawn>;
+  projectPath: string;
+  port: number;
+  script: string;
+  startedAt: number;
+  logs: string[];
+  maxLogLines: number;
+};
+
+const managedProcesses = new Map<string, ManagedProcess>();
+
+function getManagedProcessKey(projectPath: string) {
+  return resolve(workspaceRoot, projectPath);
+}
+
+function appendProcessLog(managed: ManagedProcess, line: string) {
+  managed.logs.push(line);
+  if (managed.logs.length > managed.maxLogLines) {
+    managed.logs.splice(0, managed.logs.length - managed.maxLogLines);
+  }
+}
+
+// ── Server bootstrap ────────────────────────────────────────────────
+
+const serverStartedAt = Date.now();
 
 function methodNotAllowed() {
   return {
@@ -2032,8 +2734,326 @@ function startHttpServer() {
   const host = process.env.HOST?.trim() || "127.0.0.1";
   const app = createMcpExpressApp({ host });
 
+  // ── Health check endpoint ──
+  app.get("/health", (_req: Request, res: Response) => {
+    res.status(200).json({
+      status: "ok",
+      serverName,
+      version: serverVersion,
+      brand: projectBrand,
+      homepage: projectHomepage,
+      uptime: Math.floor((Date.now() - serverStartedAt) / 1000),
+      workspaceRoot,
+      dangerousToolsEnabled,
+      managedProcesses: [...managedProcesses.entries()].map(([key, mp]) => ({
+        key,
+        projectPath: mp.projectPath,
+        port: mp.port,
+        script: mp.script,
+        running: !mp.process.killed && mp.process.exitCode === null,
+        uptimeSeconds: Math.floor((Date.now() - mp.startedAt) / 1000),
+      })),
+    });
+  });
+
   app.post("/mcp", async (req: Request, res: Response) => {
     const server = createServer();
+
+    // ── Register dev server manager tools ──
+    if (dangerousToolsEnabled) {
+      server.registerTool(
+        "start_dev_server",
+        {
+          title: "Start dev server",
+          description:
+            "Start a long-running dev server (e.g. Vite) for a workspace project. The process runs in the background and survives between MCP requests.",
+          inputSchema: {
+            projectPath: z
+              .string()
+              .default(".")
+              .describe("Relative project directory inside the workspace."),
+            script: z
+              .string()
+              .trim()
+              .min(1)
+              .max(200)
+              .default("dev")
+              .describe("npm script name to run (e.g. 'dev', 'start')."),
+            port: z
+              .number()
+              .int()
+              .min(1)
+              .max(65535)
+              .default(3001)
+              .describe("Expected port of the dev server."),
+          },
+          outputSchema: {
+            projectPath: z.string(),
+            script: z.string(),
+            port: z.number(),
+            started: z.boolean(),
+            message: z.string(),
+          },
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            openWorldHint: true,
+          },
+        },
+        async ({ projectPath, script, port: devPort }) => {
+          const key = getManagedProcessKey(projectPath);
+
+          if (managedProcesses.has(key)) {
+            const existing = managedProcesses.get(key)!;
+            if (!existing.process.killed && existing.process.exitCode === null) {
+              return {
+                content: [{ type: "text", text: `Dev server already running on port ${existing.port} for ${existing.projectPath}.` }],
+                structuredContent: {
+                  projectPath: existing.projectPath,
+                  script: existing.script,
+                  port: existing.port,
+                  started: false,
+                  message: "Already running.",
+                },
+              };
+            }
+            managedProcesses.delete(key);
+          }
+
+          const projectDirectory = await getAnyWorkspaceDirectory(projectPath);
+          const project = await readPackageJson(projectPath);
+          const packageManager = getPackageManager(project.manifest);
+          const packageManagerCommand = packageManagerCommands[packageManager];
+          const pmArgs =
+            packageManager === "yarn" ? [script] : ["run", script];
+
+          const { spawn } = await import("node:child_process");
+          const executable =
+            process.platform === "win32" ? "cmd.exe" : packageManagerCommand;
+          const args =
+            process.platform === "win32"
+              ? ["/d", "/s", "/c", packageManagerCommand, ...pmArgs]
+              : pmArgs;
+
+          const child = spawn(executable, args, {
+            cwd: projectDirectory,
+            env: { ...process.env, PORT: String(devPort) },
+            stdio: ["ignore", "pipe", "pipe"],
+            windowsHide: true,
+          });
+
+          const managed: ManagedProcess = {
+            process: child,
+            projectPath: toWorkspaceRelativePath(projectDirectory),
+            port: devPort,
+            script,
+            startedAt: Date.now(),
+            logs: [],
+            maxLogLines: 200,
+          };
+
+          child.stdout?.on("data", (chunk: Buffer) => {
+            appendProcessLog(managed, chunk.toString());
+          });
+          child.stderr?.on("data", (chunk: Buffer) => {
+            appendProcessLog(managed, chunk.toString());
+          });
+          child.once("exit", (code) => {
+            appendProcessLog(managed, `Process exited with code ${code ?? "unknown"}.`);
+          });
+
+          managedProcesses.set(key, managed);
+
+          return {
+            content: [{ type: "text", text: `Started dev server: ${packageManager} ${pmArgs.join(" ")} on port ${devPort}.` }],
+            structuredContent: {
+              projectPath: managed.projectPath,
+              script,
+              port: devPort,
+              started: true,
+              message: `Dev server started with ${packageManager} ${pmArgs.join(" ")}.`,
+            },
+          };
+        },
+      );
+
+      server.registerTool(
+        "stop_dev_server",
+        {
+          title: "Stop dev server",
+          description:
+            "Stop a background dev server that was started with start_dev_server.",
+          inputSchema: {
+            projectPath: z
+              .string()
+              .default(".")
+              .describe("Relative project directory matching start_dev_server."),
+          },
+          outputSchema: {
+            projectPath: z.string(),
+            stopped: z.boolean(),
+            message: z.string(),
+          },
+          annotations: {
+            readOnlyHint: false,
+            destructiveHint: false,
+            openWorldHint: false,
+          },
+        },
+        async ({ projectPath }) => {
+          const key = getManagedProcessKey(projectPath);
+          const managed = managedProcesses.get(key);
+
+          if (!managed) {
+            return {
+              content: [{ type: "text", text: "No dev server found for this project." }],
+              structuredContent: {
+                projectPath,
+                stopped: false,
+                message: "Not found.",
+              },
+            };
+          }
+
+          managed.process.kill();
+          managedProcesses.delete(key);
+
+          return {
+            content: [{ type: "text", text: `Stopped dev server for ${managed.projectPath}.` }],
+            structuredContent: {
+              projectPath: managed.projectPath,
+              stopped: true,
+              message: "Dev server stopped.",
+            },
+          };
+        },
+      );
+
+      server.registerTool(
+        "get_dev_server_status",
+        {
+          title: "Dev server status",
+          description:
+            "Check the status of a background dev server started with start_dev_server.",
+          inputSchema: {
+            projectPath: z
+              .string()
+              .default(".")
+              .describe("Relative project directory matching start_dev_server."),
+          },
+          outputSchema: {
+            projectPath: z.string(),
+            found: z.boolean(),
+            running: z.boolean(),
+            port: z.number(),
+            script: z.string(),
+            uptimeSeconds: z.number(),
+          },
+          annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: false,
+          },
+        },
+        async ({ projectPath }) => {
+          const key = getManagedProcessKey(projectPath);
+          const managed = managedProcesses.get(key);
+
+          if (!managed) {
+            return {
+              content: [{ type: "text", text: "No dev server found." }],
+              structuredContent: {
+                projectPath,
+                found: false,
+                running: false,
+                port: 0,
+                script: "",
+                uptimeSeconds: 0,
+              },
+            };
+          }
+
+          const running = !managed.process.killed && managed.process.exitCode === null;
+          const uptimeSeconds = Math.floor((Date.now() - managed.startedAt) / 1000);
+
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Dev server ${running ? "running" : "stopped"} on port ${managed.port} (${uptimeSeconds}s uptime).`,
+              },
+            ],
+            structuredContent: {
+              projectPath: managed.projectPath,
+              found: true,
+              running,
+              port: managed.port,
+              script: managed.script,
+              uptimeSeconds,
+            },
+          };
+        },
+      );
+
+      server.registerTool(
+        "get_dev_server_logs",
+        {
+          title: "Dev server logs",
+          description:
+            "Read the captured stdout/stderr logs from a background dev server.",
+          inputSchema: {
+            projectPath: z
+              .string()
+              .default(".")
+              .describe("Relative project directory matching start_dev_server."),
+            tail: z
+              .number()
+              .int()
+              .min(1)
+              .max(200)
+              .default(50)
+              .describe("Number of recent log lines to return."),
+          },
+          outputSchema: {
+            projectPath: z.string(),
+            found: z.boolean(),
+            lines: z.array(z.string()),
+          },
+          annotations: {
+            readOnlyHint: true,
+            destructiveHint: false,
+            openWorldHint: false,
+          },
+        },
+        async ({ projectPath, tail }) => {
+          const key = getManagedProcessKey(projectPath);
+          const managed = managedProcesses.get(key);
+
+          if (!managed) {
+            return {
+              content: [{ type: "text", text: "No dev server found." }],
+              structuredContent: {
+                projectPath,
+                found: false,
+                lines: [],
+              },
+            };
+          }
+
+          const lines = managed.logs.slice(-tail);
+
+          return {
+            content: [{ type: "text", text: lines.join("") || "(no logs yet)" }],
+            structuredContent: {
+              projectPath: managed.projectPath,
+              found: true,
+              lines,
+            },
+          };
+        },
+      );
+    }
+
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
@@ -2074,6 +3094,7 @@ function startHttpServer() {
 
   const httpServer = app.listen(port, host, () => {
     console.log(`${serverName} listening on http://${host}:${port}/mcp`);
+    console.log(`Health check: http://${host}:${port}/health`);
   });
 
   httpServer.on("error", (error) => {

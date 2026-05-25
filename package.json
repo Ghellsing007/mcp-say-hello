@@ -10,10 +10,12 @@
     "ci": "pnpm run typecheck && pnpm run build && pnpm run audit:critical",
     "dev": "tsx watch --env-file=.env src/index.ts",
     "start:ngrok": "pnpm run build && node --env-file=.env scripts/start-ngrok.mjs",
+    "start:cloudflared": "pnpm run build && node --env-file=.env scripts/start-cloudflared.mjs",
     "dev:stdio": "tsx --env-file=.env src/index.ts --stdio",
     "start": "node --env-file=.env dist/index.js",
     "start:stdio": "node --env-file=.env dist/index.js --stdio",
     "start:test": "node --env-file=.env scripts/start-ngrok.mjs",
+    "start:test-cf": "node --env-file=.env scripts/start-cloudflared.mjs",
     "audit:critical": "pnpm audit --audit-level critical",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

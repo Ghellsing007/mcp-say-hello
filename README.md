@@ -42,6 +42,68 @@ readable in redistributed copies and derivative works.
 - Optional: ngrok, only when testing the HTTP transport through a development
   tunnel
 
+## Quick Start / Cómo Poner a Funcionar el MCP
+
+Follow these 3 simple steps to get the MCP server up and running:
+
+### Step 1: Install & Build
+Enable Corepack (if not already done), install dependencies, and compile the TypeScript code:
+```powershell
+corepack enable
+pnpm install
+pnpm run build
+```
+
+### Step 2: Configure Workspace
+Create a `.env` file in the root of the project by copying [.env.example](.env.example):
+```powershell
+copy .env.example .env
+```
+Open `.env` and set the absolute path to the directory you want the AI to work on:
+```env
+WORKSPACE_ROOT=C:\develoment\mcp
+ENABLE_DANGEROUS_TOOLS=true
+```
+
+### Step 3: Run & Connect
+
+Choose the mode you want to run:
+
+#### 🚀 Option A: External Connection with Tunnel (Recommended for remote chatbots)
+To expose your local MCP to an external AI chatbot or platform, start the Cloudflare Tunnel:
+```powershell
+pnpm run start:cloudflared
+```
+* **What happens:** This will build, start the server, generate a public URL (e.g., `https://xxxx.trycloudflare.com/mcp`), and print it. You can paste this URL into your external AI client.
+* *Note:* Keep the terminal window open to keep the tunnel alive.
+
+#### 🖥️ Option B: Local Desktop Apps (Claude Desktop, etc.)
+If you are using a local desktop app, you don't need to run any terminal command to start it. Instead, register it in your client's configuration file (e.g., `%APPDATA%\Claude\claude_desktop_config.json`) using the **Stdio** configuration:
+```json
+{
+  "mcpServers": {
+    "mcp-say-hello": {
+      "command": "node",
+      "args": [
+        "--env-file=C:\\develoment\\mcp\\mcp-say-hello\\.env",
+        "C:\\develoment\\mcp\\mcp-say-hello\\dist\\index.js",
+        "--stdio"
+      ]
+    }
+  }
+}
+```
+*Make sure to replace the paths above with the actual path to your `mcp-say-hello` folder.*
+
+#### 🛠️ Option C: Local HTTP Development
+For running the server locally on port 3000 during development with hot reload:
+```powershell
+pnpm run dev
+```
+Accessible at: `http://127.0.0.1:3000/mcp`
+
+---
+
 ## What It Does
 
 Default workspace tools:
@@ -52,7 +114,7 @@ Default workspace tools:
 - create new text files without overwriting existing files
 - replace exact text or apply batches of exact replacements
 - list and run declared verification scripts from `package.json`
-- inspect Git status and diffs
+- inspect Git status, diffs, log, show, remotes, and branches
 
 Demo tools:
 
@@ -71,6 +133,16 @@ Dangerous tools, only available when `ENABLE_DANGEROUS_TOOLS=true`:
 - `git_commit`
 - `git_push`
 - `git_reset`
+- `git_checkout`
+- `git_restore`
+- `create_directory`
+- `move_file`
+- `delete_directory`
+- `analyze_project`
+- `start_dev_server`
+- `stop_dev_server`
+- `get_dev_server_status`
+- `get_dev_server_logs`
 
 ## Safety Model
 
@@ -150,7 +222,9 @@ The project scripts in `package.json` are:
 | `pnpm run start` | Runs the built HTTP MCP server from `dist/index.js`. Requires `pnpm run build` first. |
 | `pnpm run start:stdio` | Runs the built MCP server over local `stdio`. Requires `pnpm run build` first. |
 | `pnpm run start:ngrok` | Builds the project, starts the built HTTP MCP server, starts ngrok, and prints the public `/mcp` URL. |
+| `pnpm run start:cloudflared` | Builds the project, starts the built HTTP MCP server, starts Cloudflare Tunnel, and prints the public `/mcp` URL. No account needed. |
 | `pnpm run start:test` | Starts only the ngrok wrapper from `scripts/start-ngrok.mjs`. It expects `dist/index.js` to already exist. |
+| `pnpm run start:test-cf` | Starts only the cloudflared wrapper from `scripts/start-cloudflared.mjs`. It expects `dist/index.js` to already exist. |
 | `pnpm run typecheck` | Runs TypeScript checks without writing build output. |
 | `pnpm run audit:critical` | Runs a critical-level dependency audit. |
 | `pnpm run ci` | Runs `typecheck`, `build`, and `audit:critical` together. |
@@ -192,6 +266,15 @@ http://127.0.0.1:3000/mcp
 Only `POST /mcp` handles MCP requests. `GET /mcp` and `DELETE /mcp` return
 method-not-allowed responses.
 
+A health check endpoint is available at:
+
+```text
+http://127.0.0.1:3000/health
+```
+
+It returns server name, version, uptime, workspace root, and any managed
+background dev server processes.
+
 Any public HTTP deployment needs authentication and policy at the HTTP boundary.
 Use the MCP authorization model based on OAuth 2.1 for broad HTTP-client
 interoperability, or keep the endpoint limited to trusted local networks during
@@ -229,6 +312,35 @@ pnpm run start:test
 The tunnel wrapper checks for `dist/index.js`, `ngrok`, `NGROK_AUTHTOKEN`, and
 `WORKSPACE_ROOT`.
 
+## Development Tunnel With Cloudflare Tunnel
+
+Cloudflare Tunnel is an alternative to ngrok that provides a free HTTPS tunnel
+without rate limiting. No Cloudflare account is needed for quick tunnels.
+
+Prerequisites:
+
+- install cloudflared: `winget install Cloudflare.cloudflared` (Windows)
+
+Start the built server and tunnel together:
+
+```powershell
+pnpm run start:cloudflared
+```
+
+`start:cloudflared` builds the server, starts the local `/mcp` server, opens a
+Cloudflare Tunnel, and prints the public MCP URL ending in `/mcp`. Keep that
+terminal running while a remote client uses the tunnel. Press `Ctrl+C` to stop
+both processes.
+
+If you already built the project:
+
+```powershell
+pnpm run start:test-cf
+```
+
+For a fixed permanent URL, configure a named tunnel in the Cloudflare dashboard
+and point it to your domain (e.g., `mcp.gvslabs.cloud`).
+
 ## Suggested MCP Client Description
 
 ```text
@@ -264,10 +376,14 @@ Project verification:
 - `list_project_scripts`
 - `run_project_script`
 
-Git inspection:
+Git inspection (safe, read-only):
 
 - `git_status`
 - `git_diff`
+- `git_log`
+- `git_show`
+- `git_remote`
+- `git_branch`
 
 Dangerous tools, only when `ENABLE_DANGEROUS_TOOLS=true`:
 
@@ -280,6 +396,24 @@ Dangerous tools, only when `ENABLE_DANGEROUS_TOOLS=true`:
 - `git_commit`
 - `git_push`
 - `git_reset`
+- `git_checkout`
+- `git_restore`
+- `create_directory`
+- `move_file`
+- `delete_directory`
+- `analyze_project`
+
+Dev server management (dangerous, HTTP mode only):
+
+- `start_dev_server`
+- `stop_dev_server`
+- `get_dev_server_status`
+- `get_dev_server_logs`
+
+HTTP endpoints:
+
+- `POST /mcp` — MCP protocol requests
+- `GET /health` — Server health check and status
 
 ## Development
 
