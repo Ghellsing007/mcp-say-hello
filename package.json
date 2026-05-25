@@ -8,11 +8,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "ci": "pnpm run typecheck && pnpm run build && pnpm run audit:critical",
-    "dev": "tsx --env-file=.env watch src/index.ts",
+    "dev": "tsx watch --env-file=.env src/index.ts",
+    "start:ngrok": "pnpm run build && node --env-file=.env scripts/start-ngrok.mjs",
     "dev:stdio": "tsx --env-file=.env src/index.ts --stdio",
     "start": "node --env-file=.env dist/index.js",
     "start:stdio": "node --env-file=.env dist/index.js --stdio",
-    "start:ngrok": "node --env-file=.env scripts/start-ngrok.mjs",
+    "start:test": "node --env-file=.env scripts/start-ngrok.mjs",
     "audit:critical": "pnpm audit --audit-level critical",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

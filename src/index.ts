@@ -2029,7 +2029,8 @@ async function startStdioServer() {
 }
 
 function startHttpServer() {
-  const app = createMcpExpressApp();
+  const host = process.env.HOST?.trim() || "127.0.0.1";
+  const app = createMcpExpressApp({ host });
 
   app.post("/mcp", async (req: Request, res: Response) => {
     const server = createServer();
@@ -2071,9 +2072,16 @@ function startHttpServer() {
 
   const port = Number(process.env.PORT ?? 3000);
 
-  app.listen(port, () => {
-    console.log(`${serverName} listening on http://localhost:${port}/mcp`);
+  const httpServer = app.listen(port, host, () => {
+    console.log(`${serverName} listening on http://${host}:${port}/mcp`);
   });
+
+  httpServer.on("error", (error) => {
+    console.error("Failed to start HTTP MCP server:", error);
+    process.exit(1);
+  });
+
+  httpServer.ref();
 }
 
 if (process.argv.includes("--stdio")) {

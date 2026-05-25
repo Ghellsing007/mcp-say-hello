@@ -8,7 +8,10 @@ const serverEntry = resolve(projectRoot, "dist", "index.js");
 const projectName = "mcp-say-hello";
 const projectBrand = "GVSLabs";
 const projectHomepage = "https://gvslabs.cloud/";
+const host = process.env.HOST?.trim() || "127.0.0.1";
 const port = Number(process.env.PORT ?? 3000);
+const localMcpUrl = `http://${host}:${port}/mcp`;
+const localUpstreamUrl = `http://${host}:${port}`;
 const startupTimeoutMs = 20_000;
 
 function fail(message) {
@@ -31,6 +34,48 @@ function requireExecutable(command, installHint) {
 
 function wait(ms) {
   return new Promise((resolveWait) => setTimeout(resolveWait, ms));
+}
+
+function waitForServerReady(server) {
+  return new Promise((resolveReady, rejectReady) => {
+    const deadline = setTimeout(() => {
+      rejectReady(new Error("The MCP server did not report readiness before timeout."));
+    }, startupTimeoutMs);
+
+    function cleanup() {
+      clearTimeout(deadline);
+      server.stdout?.off("data", onOutput);
+      server.stderr?.off("data", onOutput);
+      server.off("exit", onExit);
+      server.off("error", onError);
+    }
+
+    function onOutput(chunk) {
+      const output = chunk.toString();
+
+      if (output.includes("listening on http://")) {
+        cleanup();
+        resolveReady();
+      }
+    }
+
+    function onExit(code) {
+      cleanup();
+      rejectReady(
+        new Error(`The MCP server exited before it was ready (code ${code ?? "unknown"}).`),
+      );
+    }
+
+    function onError(error) {
+      cleanup();
+      rejectReady(error);
+    }
+
+    server.stdout?.on("data", onOutput);
+    server.stderr?.on("data", onOutput);
+    server.once("exit", onExit);
+    server.once("error", onError);
+  });
 }
 
 async function getPublicMcpUrl() {
@@ -111,25 +156,18 @@ const server = spawn(
 forwardOutput("mcp", server.stdout);
 forwardOutput("mcp", server.stderr);
 
-server.once("exit", (code) => {
-  fail(`The MCP server exited before the tunnel was ready (code ${code ?? "unknown"}).`);
-});
-
-await wait(1_500);
+await waitForServerReady(server);
 
 const ngrok = spawn(
   "ngrok",
   [
     "http",
-    String(port),
+    localUpstreamUrl,
     "--host-header=rewrite",
-    "--authtoken",
-    process.env.NGROK_AUTHTOKEN,
   ],
   {
     cwd: projectRoot,
     stdio: ["ignore", "pipe", "pipe"],
-    shell: process.platform === "win32",
     windowsHide: true,
   },
 );
@@ -151,7 +189,7 @@ try {
       `Project: ${projectHomepage}`,
       "Domain: gvslabs.cloud",
       `MCP URL: ${mcpUrl}`,
-      `Local upstream: http://localhost:${port}/mcp`,
+      `Local upstream: ${localMcpUrl}`,
       "",
       "Keep this process running while the remote chatbot uses the MCP.",
       "Press Ctrl+C to stop both the MCP server and ngrok.",

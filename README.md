@@ -138,6 +138,23 @@ not set, the server uses its current working directory as the workspace root.
 Keep `.env` local. Never commit tokens, secrets, or machine-specific workspace
 paths.
 
+## Package Scripts
+
+The project scripts in `package.json` are:
+
+| Script | Purpose |
+| --- | --- |
+| `pnpm run dev` | Runs the HTTP MCP server from TypeScript with file watching. Endpoint: `http://127.0.0.1:3000/mcp`. |
+| `pnpm run dev:stdio` | Runs the MCP server from TypeScript over local `stdio`. |
+| `pnpm run build` | Compiles TypeScript from `src/` into `dist/`. |
+| `pnpm run start` | Runs the built HTTP MCP server from `dist/index.js`. Requires `pnpm run build` first. |
+| `pnpm run start:stdio` | Runs the built MCP server over local `stdio`. Requires `pnpm run build` first. |
+| `pnpm run start:ngrok` | Builds the project, starts the built HTTP MCP server, starts ngrok, and prints the public `/mcp` URL. |
+| `pnpm run start:test` | Starts only the ngrok wrapper from `scripts/start-ngrok.mjs`. It expects `dist/index.js` to already exist. |
+| `pnpm run typecheck` | Runs TypeScript checks without writing build output. |
+| `pnpm run audit:critical` | Runs a critical-level dependency audit. |
+| `pnpm run ci` | Runs `typecheck`, `build`, and `audit:critical` together. |
+
 ## Run With Stdio
 
 `stdio` is the recommended local mode. The MCP client launches the server on the
@@ -169,7 +186,7 @@ pnpm run dev
 The MCP endpoint is:
 
 ```text
-http://localhost:3000/mcp
+http://127.0.0.1:3000/mcp
 ```
 
 Only `POST /mcp` handles MCP requests. `GET /mcp` and `DELETE /mcp` return
@@ -194,14 +211,23 @@ Prerequisites:
 Start the built server and tunnel together:
 
 ```powershell
-pnpm run build
 pnpm run start:ngrok
 ```
 
-The script checks for `dist/index.js`, `ngrok`, `NGROK_AUTHTOKEN`, and
-`WORKSPACE_ROOT`, starts the local `/mcp` server, opens an HTTPS tunnel, and
-prints the public MCP URL ending in `/mcp`. Keep that terminal running while a
-remote client uses the tunnel. Press `Ctrl+C` to stop both processes.
+`start:ngrok` builds the server, starts the local `/mcp` server, opens an HTTPS
+ngrok tunnel, and prints the public MCP URL ending in `/mcp`. Keep that
+terminal running while a remote client uses the tunnel. Press `Ctrl+C` to stop
+both processes.
+
+If you already built the project and only want to start the tunnel wrapper
+without rebuilding:
+
+```powershell
+pnpm run start:test
+```
+
+The tunnel wrapper checks for `dist/index.js`, `ngrok`, `NGROK_AUTHTOKEN`, and
+`WORKSPACE_ROOT`.
 
 ## Suggested MCP Client Description
 
@@ -268,6 +294,25 @@ Use the combined local validation command before opening a pull request:
 ```powershell
 pnpm run ci
 ```
+
+### pnpm Build Script Approval
+
+pnpm 10 may show this warning during install:
+
+```text
+Ignored build scripts: esbuild.
+Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+```
+
+`esbuild` is a transitive development dependency used by `tsx`. For local
+development, approve it only if you trust the installed dependency tree:
+
+```powershell
+pnpm approve-builds
+```
+
+Select `esbuild` with `<space>` and confirm with `<enter>`. If no package is
+listed, there is nothing pending to approve.
 
 ## Open Source Publication Checklist
 
